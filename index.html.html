@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guardian — Full System</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07090f; --surface:#0d1219; --surface2:#121820; --surface3:#181f2a;
+  --border:rgba(255,255,255,0.06); --border-hi:rgba(255,255,255,0.14);
+  --text:#dde4f0; --dim:#556070; --muted:#1e2736;
+  --green:#00e5a0; --green-bg:rgba(0,229,160,0.08); --green-glow:rgba(0,229,160,0.2);
+  --amber:#ffb020; --amber-bg:rgba(255,176,32,0.1);
+  --red:#ff3d5a; --red-bg:rgba(255,61,90,0.1); --red-glow:rgba(255,61,90,0.3);
+  --blue:#4da6ff; --blue-bg:rgba(77,166,255,0.1);
+  --pink:#d966ff; --pink-bg:rgba(217,102,255,0.1);
+  --teal:#00cdd9; --teal-bg:rgba(0,205,217,0.08);
+  --mono:'IBM Plex Mono',monospace; --sans:'Barlow',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 700px 500px at 15% -10%,rgba(0,229,160,0.04) 0%,transparent 60%),
+             radial-gradient(ellipse 500px 400px at 85% 110%,rgba(77,166,255,0.04) 0%,transparent 60%);
+  pointer-events:none;z-index:0;}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:rgba(7,9,15,0.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;padding:0 20px;}
+.nav-brand{display:flex;align-items:center;gap:10px;padding:14px 0;margin-right:32px;}
+.nav-mark{width:28px;height:28px;border-radius:7px;background:var(--green-bg);
+  border:1px solid rgba(0,229,160,0.4);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.nav-title{font-size:14px;font-weight:800;letter-spacing:-0.2px;}
+.nav-title em{color:var(--green);font-style:normal;}
+.nav-tabs{display:flex;flex:1;}
+.nav-tab{padding:16px 18px;font-size:12px;font-weight:700;letter-spacing:0.5px;
+  color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all 0.2s;white-space:nowrap;text-transform:uppercase;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.api-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:10px;padding:6px 10px;
+  outline:none;width:220px;transition:border-color 0.2s;}
+.api-input:focus{border-color:var(--border-hi);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+
+/* PAGES */
+.page{display:none;position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:20px;}
+.page.active{display:block;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;
+  position:relative;overflow:hidden;transition:border-color 0.3s,box-shadow 0.3s;}
+.card.thinking{border-color:var(--green);box-shadow:0 0 24px var(--green-glow);}
+.card.thinking::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,229,160,0.05),transparent);
+  animation:sweep 1.4s ease-in-out infinite;}
+.card.alarm{border-color:var(--red);box-shadow:0 0 28px var(--red-glow);animation:alarmPulse 1.2s infinite;}
+@keyframes alarmPulse{0%,100%{box-shadow:0 0 20px var(--red-glow)}50%{box-shadow:0 0 40px rgba(255,61,90,0.5)}}
+@keyframes sweep{to{left:160%;}}
+.clabel{font-family:var(--mono);font-size:9px;font-weight:600;text-transform:uppercase;
+  letter-spacing:1.5px;color:var(--dim);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.cdot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background 0.3s;}
+.card.thinking .cdot,.card.active .cdot,.card.alarm .cdot{background:var(--green);box-shadow:0 0 5px var(--green);}
+.card.alarm .cdot{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+/* GRID LAYOUTS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+.mb{margin-bottom:12px;}
+
+/* SCENARIO BUTTONS */
+.scen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.scen-btn{padding:10px 12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;transition:all 0.2s;text-align:left;}
+.scen-btn:hover{border-color:var(--border-hi);}
+.scen-btn.sel{border-color:currentColor;}
+.scen-btn.s0{color:var(--amber);}.scen-btn.sel.s0{background:var(--amber-bg);}
+.scen-btn.s1{color:var(--blue);}.scen-btn.sel.s1{background:var(--blue-bg);}
+.scen-btn.s2{color:var(--red);}.scen-btn.sel.s2{background:var(--red-bg);}
+.scen-btn.s3{color:var(--pink);}.scen-btn.sel.s3{background:var(--pink-bg);}
+.si{font-size:18px;display:block;margin-bottom:3px;}
+.st{font-size:12px;font-weight:700;}
+.ss{font-size:10px;font-family:var(--mono);opacity:0.65;margin-top:2px;}
+
+/* TEXTAREA */
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:var(--mono);font-size:11px;line-height:1.6;
+  padding:10px;resize:none;outline:none;transition:border-color 0.2s;}
+textarea:focus{border-color:var(--border-hi);}
+.slabel{font-family:var(--mono);font-size:9px;color:var(--dim);text-transform:uppercase;
+  letter-spacing:1px;margin-bottom:5px;}
+
+/* THREAT METER */
+.score-big{font-size:52px;font-weight:900;font-family:var(--mono);color:var(--green);
+  text-align:center;line-height:1;padding:10px 0 2px;transition:color 0.6s;}
+.score-lbl{text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim);
+  margin-bottom:8px;transition:color 0.4s;}
+.meter-track{height:8px;background:var(--muted);border-radius:4px;overflow:hidden;margin:8px 0 5px;}
+.meter-fill{height:100%;border-radius:4px;width:0%;
+  transition:width 0.9s cubic-bezier(0.4,0,0.2,1),background 0.7s;background:var(--green);}
+.meter-marks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--dim);}
+.verdict{padding:8px 12px;border-radius:8px;font-family:var(--mono);font-size:11px;font-weight:600;
+  text-align:center;border:1px solid var(--border);background:var(--surface2);color:var(--dim);
+  transition:all 0.5s;}
+.verdict.safe{background:rgba(0,229,160,0.1);color:var(--green);border-color:rgba(0,229,160,0.4);}
+.verdict.watch{background:var(--amber-bg);color:var(--amber);border-color:rgba(255,176,32,0.4);}
+.verdict.alert{background:var(--red-bg);color:var(--red);border-color:rgba(255,61,90,0.4);}
+.verdict.critical{background:rgba(255,61,90,0.18);color:var(--red);border-color:var(--red);
+  animation:vcrit 1s infinite;}
+@keyframes vcrit{0%,100%{box-shadow:0 0 0 0 var(--red-glow)}50%{box-shadow:0 0 0 6px transparent}}
+
+/* SIGNALS */
+.sigs{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.sig{padding:3px 8px;border-radius:4px;font-family:var(--mono);font-size:9px;
+  background:var(--surface3);color:var(--dim);border:1px solid var(--border);transition:all 0.4s;}
+.sig.on{background:var(--green-bg);color:var(--green);border-color:rgba(0,229,160,0.4);}
+.sig.on.w{background:var(--amber-bg);color:var(--amber);border-color:rgba(255,176,32,0.4);}
+.sig.on.d{background:var(--red-bg);color:var(--red);border-color:rgba(255,61,90,0.4);}
+
+/* ACTION CARDS */
+.actions-row{display:flex;gap:6px;margin-top:10px;}
+.ac{flex:1;padding:8px 4px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);font-family:var(--mono);font-size:9px;
+  text-align:center;transition:all 0.4s;cursor:default;}
+.ac .ai{font-size:18px;display:block;margin-bottom:3px;}
+.ac.fired{border-color:currentColor;animation:acpop 0.4s ease;}
+@keyframes acpop{0%{transform:scale(0.94)}60%{transform:scale(1.04)}100%{transform:scale(1)}}
+.ac.t-watch{color:var(--green);}.ac.t-trust{color:var(--amber);}
+.ac.t-dv{color:var(--pink);}.ac.t-police{color:var(--red);}
+.ac.t-medic{color:var(--blue);}.ac.t-fire{color:var(--red);}
+
+/* REASONING */
+.reason{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:12px;font-family:var(--mono);font-size:10px;line-height:1.7;
+  color:var(--dim);min-height:80px;white-space:pre-wrap;}
+.cursor{display:inline-block;width:7px;height:12px;background:var(--green);
+  animation:cur 0.75s infinite;vertical-align:middle;border-radius:1px;}
+@keyframes cur{0%,100%{opacity:1}50%{opacity:0}}
+
+/* LOG */
+.log{font-family:var(--mono);font-size:10px;line-height:1.7;
+  max-height:190px;overflow-y:auto;padding-right:4px;}
+.logrow{display:flex;gap:8px;padding:2px 0;
+  border-bottom:1px solid rgba(255,255,255,0.025);
+  animation:fdup 0.25s ease forwards;}
+@keyframes fdup{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.lt{color:var(--muted);flex-shrink:0;width:36px;}
+.ls{flex-shrink:0;width:56px;}
+.ls.h{color:var(--pink);}.ls.d{color:var(--green);}.ls.s{color:var(--blue);}.ls.a{color:var(--amber);}
+.lm{color:var(--dim);}
+.lm.hl{color:var(--text);}.lm.w{color:var(--amber);}.lm.c{color:var(--red);}.lm.g{color:var(--green);}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:8px;margin-top:12px;}
+.btn{flex:1;padding:11px;border-radius:8px;font-family:var(--sans);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);}
+.btn:hover{border-color:var(--border-hi);}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+.btn.go{background:var(--green);color:var(--bg);border-color:var(--green);}
+.btn.go:hover{background:#00ffb8;}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red);}
+.btn.danger:hover{background:#ff6070;}
+.btn.dim{color:var(--dim);}
+
+/* ══════════════════════ STATION DASHBOARD ══════════════════════ */
+.stn-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;
+  padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+.stn-status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;}
+.stn-clock{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--green);}
+.alert-ticker{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;
+  padding:10px 16px;margin-bottom:14px;display:none;}
+.alert-ticker.show{display:flex;align-items:center;gap:12px;}
+.ticker-icon{font-size:20px;animation:shake 0.5s infinite;}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.ticker-text{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--red);}
+.ticker-eta{margin-left:auto;font-family:var(--mono);font-size:11px;
+  background:var(--red);color:#fff;padding:3px 10px;border-radius:20px;}
+
+/* Incident cards */
+.inc-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:14px;transition:all 0.3s;cursor:pointer;}
+.inc-card:hover{border-color:var(--border-hi);}
+.inc-card.active-inc{border-color:var(--red);box-shadow:0 0 16px var(--red-glow);}
+.inc-type{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.inc-addr{font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:8px;}
+.inc-score-bar{height:4px;border-radius:2px;background:var(--muted);overflow:hidden;margin-bottom:6px;}
+.inc-score-fill{height:100%;border-radius:2px;}
+.inc-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--dim);}
+.inc-badge{padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:9px;font-weight:600;}
+
+/* Map placeholder */
+.map-area{background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:20px;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;}
+.map-grid{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(0,229,160,0.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,160,0.04) 1px,transparent 1px);
+  background-size:30px 30px;}
+.map-pin{font-size:32px;position:relative;z-index:1;animation:pinBounce 1s ease infinite;}
+@keyframes pinBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.map-addr{font-family:var(--mono);font-size:11px;color:var(--green);margin-top:8px;position:relative;z-index:1;}
+.map-coords{font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:4px;position:relative;z-index:1;}
+
+/* Camera feeds */
+.cam-feed{background:var(--muted);border-radius:8px;aspect-ratio:16/9;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:9px;color:var(--dim);
+  position:relative;overflow:hidden;border:1px solid var(--border);}
+.cam-feed.live::before{content:'● LIVE';position:absolute;top:6px;left:6px;
+  font-family:var(--mono);font-size:8px;color:var(--red);font-weight:600;
+  animation:blink 1s infinite;}
+.cam-scanline{position:absolute;top:0;left:0;right:0;height:2px;
+  background:rgba(0,229,160,0.3);animation:scan 3s linear infinite;}
+@keyframes scan{to{top:100%;}}
+.cam-label{position:absolute;bottom:6px;right:6px;font-family:var(--mono);
+  font-size:8px;color:rgba(255,255,255,0.5);}
+
+/* Responder panel */
+.resp-row{display:flex;align-items:center;gap:10px;padding:10px;
+  background:var(--surface2);border-radius:8px;margin-bottom:6px;
+  border:1px solid var(--border);}
+.resp-icon{font-size:20px;width:32px;text-align:center;}
+.resp-info{flex:1;}
+.resp-name{font-size:12px;font-weight:700;}
+.resp-sub{font-family:var(--mono);font-size:9px;color:var(--dim);}
+.resp-eta{font-family:var(--mono);font-size:11px;font-weight:600;}
+.resp-eta.en-route{color:var(--amber);}
+.resp-eta.arrived{color:var(--green);}
+
+/* ══════════════════════ SETUP APP ══════════════════════ */
+.setup-section{margin-bottom:20px;}
+.setup-title{font-size:13px;font-weight:700;margin-bottom:12px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;}
+.setup-title .icon{font-size:16px;}
+.form-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.form-label{font-size:13px;}
+.form-sub{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:2px;}
+input[type=text],input[type=tel],input[type=password]{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:11px;
+  padding:7px 10px;outline:none;transition:border-color 0.2s;width:220px;}
+input[type=text]:focus,input[type=tel]:focus,input[type=password]:focus{border-color:var(--border-hi);}
+.toggle{width:40px;height:22px;border-radius:11px;background:var(--muted);
+  cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;}
+.toggle.on{background:var(--green);}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform 0.2s;}
+.toggle.on::after{transform:translateX(18px);}
+.cam-zone{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:10px;display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.cam-zone .cz-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.cam-zone .cz-dot.off{background:var(--muted);}
+.cz-info{flex:1;}
+.cz-name{font-size:12px;font-weight:600;}
+.cz-sub{font-family:var(--mono);font-size:9px;color:var(--dim);}
+.safewrd{background:var(--surface2);border:1px solid rgba(0,229,160,0.3);border-radius:10px;
+  padding:14px;margin-bottom:12px;}
+.safewrd-phrase{font-size:24px;font-weight:800;color:var(--green);letter-spacing:-0.5px;margin-bottom:4px;}
+.trusted-person{display:flex;align-items:center;gap:10px;padding:10px;
+  background:var(--surface2);border-radius:8px;border:1px solid var(--border);margin-bottom:6px;}
+.tp-avatar{width:32px;height:32px;border-radius:50%;background:var(--surface3);
+  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.tp-info{flex:1;}
+.tp-name{font-size:12px;font-weight:600;}
+.tp-rel{font-family:var(--mono);font-size:9px;color:var(--dim);}
+.tp-contact{font-family:var(--mono);font-size:10px;color:var(--green);}
+.save-bar{position:sticky;bottom:0;background:rgba(7,9,15,0.95);backdrop-filter:blur(10px);
+  padding:12px 0;border-top:1px solid var(--border);margin-top:16px;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px;}
+
+/* Responsive */
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr;}.nav-tab{font-size:10px;padding:14px 10px;}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-mark">🛡</div>
+    <div>
+      <div class="nav-title">GUARDIAN <em>NETWORK</em></div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showPage('ai')">⚡ AI Core</div>
+    <div class="nav-tab" onclick="showPage('station')">🚨 Station Dashboard</div>
+    <div class="nav-tab" onclick="showPage('setup')">⚙️ Home Setup</div>
+  </div>
+  <div class="nav-right">
+    <input class="api-input" id="apiKey" type="password" placeholder="sk-ant-api03-... (Anthropic key)"/>
+    <div class="live-dot"></div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 1: AI CORE
+═══════════════════════════════════════════════════ -->
+<div class="page active" id="page-ai">
+  <div class="g2 mb">
+    <!-- Left: scenario + scene -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card">
+        <div class="clabel"><div class="cdot"></div>Select scenario</div>
+        <div class="scen-grid">
+          <div class="scen-btn s0 sel" id="sc0" onclick="pickScene(0)">
+            <span class="si">🔓</span><div class="st">Intruder</div><div class="ss">Unknown person + distress</div>
+          </div>
+          <div class="scen-btn s1" id="sc1" onclick="pickScene(1)">
+            <span class="si">🫀</span><div class="st">Medical</div><div class="ss">Collapse, child alone</div>
+          </div>
+          <div class="scen-btn s2" id="sc2" onclick="pickScene(2)">
+            <span class="si">🔥</span><div class="st">Fire</div><div class="ss">Smoke + person inside</div>
+          </div>
+          <div class="scen-btn s3" id="sc3" onclick="pickScene(3)">
+            <span class="si">⚠️</span><div class="st">Domestic</div><div class="ss">Physical threat, weapon</div>
+          </div>
+        </div>
+        <div class="slabel">Scene description — edit freely</div>
+        <textarea id="sceneInput" rows="6" placeholder="Describe what cameras, mic, and sensors detect..."></textarea>
+        <div class="btn-row">
+          <button class="btn go" id="btnGo" onclick="runAnalysis()">▶ ANALYSE SCENE</button>
+          <button class="btn dim" onclick="resetAI()">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: score + verdict -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card" id="meterCard">
+        <div class="clabel"><div class="cdot"></div>Live threat score</div>
+        <div class="score-big" id="scoreNum">—</div>
+        <div class="score-lbl" id="scoreLbl">Awaiting scene analysis</div>
+        <div class="meter-track"><div class="meter-fill" id="mFill"></div></div>
+        <div class="meter-marks"><span>Safe</span><span>Elevated</span><span>Critical</span></div>
+        <div class="verdict" id="verdict" style="margin-top:10px;">NO ANALYSIS YET</div>
+        <div class="sigs">
+          <div class="sig" id="sg-uk">Unknown person</div>
+          <div class="sig" id="sg-wp">Weapon detected</div>
+          <div class="sig" id="sg-ph">Physical contact</div>
+          <div class="sig" id="sg-tw">Threat words</div>
+          <div class="sig" id="sg-pd">Person down</div>
+          <div class="sig" id="sg-fs">Fire / smoke</div>
+          <div class="sig" id="sg-ca">Child alone</div>
+          <div class="sig" id="sg-ds">Distress signal</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="clabel"><div class="cdot"></div>Actions dispatched</div>
+        <div class="actions-row">
+          <div class="ac t-watch" id="ac-watch"><span class="ai">👁</span><div>Watch</div></div>
+          <div class="ac t-trust" id="ac-trust"><span class="ai">📱</span><div>Trusted</div></div>
+          <div class="ac t-dv"    id="ac-dv">   <span class="ai">🤝</span><div>DV Line</div></div>
+          <div class="ac t-police"id="ac-pol">  <span class="ai">🚔</span><div>Police</div></div>
+          <div class="ac t-medic" id="ac-med">  <span class="ai">🚑</span><div>Medics</div></div>
+          <div class="ac t-fire"  id="ac-fir">  <span class="ai">🚒</span><div>Fire</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reasoning + Log -->
+  <div class="g2">
+    <div class="card" id="reasonCard">
+      <div class="clabel"><div class="cdot"></div>AI reasoning — Anthropic Claude</div>
+      <div class="reason" id="reasonBox">Waiting for scene input...</div>
+    </div>
+    <div class="card">
+      <div class="clabel"><div class="cdot"></div>Agent communication log</div>
+      <div class="log" id="logFeed">
+        <div class="logrow"><span class="lt">00:00</span><span class="ls h">HOME</span><span class="lm">System online. All sensors nominal.</span></div>
+        <div class="logrow"><span class="lt">00:01</span><span class="ls d">DISP</span><span class="lm">Dispatch agent ready. AI core connected.</span></div>
+        <div class="logrow"><span class="lt">00:02</span><span class="ls s">STN</span><span class="lm">Station agent standby. Awaiting alerts.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 2: STATION DASHBOARD
+═══════════════════════════════════════════════════ -->
+<div class="page" id="page-station">
+
+  <!-- Header bar -->
+  <div class="stn-hdr mb">
+    <div>
+      <div style="font-size:11px;font-family:var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:1px;">Guardian Control Centre</div>
+      <div style="font-size:13px;font-weight:700;margin-top:2px;">City Emergency Dispatch — Sector 4</div>
+    </div>
+    <div class="stn-clock" id="stnClock">00:00:00</div>
+    <div class="stn-status">
+      <div class="live-dot"></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--green);">3 UNITS ONLINE</span>
+    </div>
+  </div>
+
+  <!-- Alert ticker -->
+  <div class="alert-ticker" id="alertTicker">
+    <span class="ticker-icon">🚨</span>
+    <span class="ticker-text" id="tickerText">CRITICAL ALERT — WEAPON THREAT — 14 Maple Drive</span>
+    <span class="ticker-eta" id="tickerEta">ETA 4 min</span>
+  </div>
+
+  <div class="g2 mb">
+    <!-- Incident queue -->
+    <div>
+      <div class="clabel mb"><div class="cdot" style="background:var(--red);box-shadow:0 0 5px var(--red)"></div>Active incidents</div>
+      <div id="incQueue">
+        <!-- Populated by JS -->
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn danger" onclick="triggerLiveAlert()">🔴 SIMULATE INCOMING ALERT</button>
+      </div>
+    </div>
+
+    <!-- Selected incident detail -->
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card" id="incDetail">
+        <div class="clabel"><div class="cdot"></div>Incident detail</div>
+        <div id="detailContent" style="font-family:var(--mono);font-size:11px;color:var(--dim);">
+          Select an incident from the queue to view details.
+        </div>
+      </div>
+      <div class="map-area">
+        <div class="map-grid"></div>
+        <div class="map-pin" id="mapPin" style="display:none;">📍</div>
+        <div id="mapAddr" style="font-family:var(--mono);font-size:11px;color:var(--dim);position:relative;z-index:1;">
+          No active incident selected
+        </div>
+        <div id="mapCoords" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;position:relative;z-index:1;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <!-- Camera feeds -->
+    <div class="card">
+      <div class="clabel"><div class="cdot"></div>Live camera feeds</div>
+      <div class="g2" style="gap:8px;">
+        <div class="cam-feed live" id="cam1">
+          <div class="cam-scanline"></div>
+          <span style="position:relative;z-index:1;font-size:9px;">CAM 1 — ENTRY</span>
+          <div class="cam-label">HD · 1080p</div>
+        </div>
+        <div class="cam-feed live" id="cam2">
+          <div class="cam-scanline" style="animation-delay:1.5s;"></div>
+          <span style="position:relative;z-index:1;font-size:9px;">CAM 2 — LIVING RM</span>
+          <div class="cam-label">HD · 1080p</div>
+        </div>
+        <div class="cam-feed" id="cam3">
+          <span style="font-size:9px;">CAM 3 — KITCHEN</span>
+          <div class="cam-label">OFFLINE</div>
+        </div>
+        <div class="cam-feed" id="cam4">
+          <span style="font-size:9px;">CAM 4 — HALLWAY</span>
+          <div class="cam-label">OFFLINE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Responders -->
+    <div class="card">
+      <div class="clabel"><div class="cdot"></div>Responder status</div>
+      <div id="responders">
+        <div class="resp-row">
+          <div class="resp-icon">🚔</div>
+          <div class="resp-info">
+            <div class="resp-name">Police — Unit 7</div>
+            <div class="resp-sub">2 officers · Armed response</div>
+          </div>
+          <div class="resp-eta" id="eta-police">STANDBY</div>
+        </div>
+        <div class="resp-row">
+          <div class="resp-icon">🚑</div>
+          <div class="resp-info">
+            <div class="resp-name">Medic — Unit 2</div>
+            <div class="resp-sub">Paramedic team · AED onboard</div>
+          </div>
+          <div class="resp-eta" id="eta-medic">STANDBY</div>
+        </div>
+        <div class="resp-row">
+          <div class="resp-icon">🚒</div>
+          <div class="resp-info">
+            <div class="resp-name">Fire — Engine 5</div>
+            <div class="resp-sub">6 crew · Rescue equipment</div>
+          </div>
+          <div class="resp-eta" id="eta-fire">STANDBY</div>
+        </div>
+      </div>
+      <!-- Dispatch brief -->
+      <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+        <div class="slabel">Dispatch brief sent to units</div>
+        <div id="dispBrief" style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:4px;line-height:1.6;">
+          No active dispatch.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 3: HOME SETUP
+═══════════════════════════════════════════════════ -->
+<div class="page" id="page-setup">
+  <div class="g2">
+    <!-- Left column -->
+    <div>
+      <!-- Household -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">🏠</span> Household profile</div>
+        <div class="form-row">
+          <div><div class="form-label">Home address</div><div class="form-sub">Used for emergency dispatch</div></div>
+          <input type="text" value="14 Maple Drive, Floor 1" id="setupAddr"/>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Number of residents</div><div class="form-sub">Adults and children</div></div>
+          <input type="text" value="2 adults, 1 child (age 7)" style="width:160px;"/>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Child present</div><div class="form-sub">Enables child-alone protocols</div></div>
+          <div class="toggle on" id="t-child" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Smart lock connected</div><div class="form-sub">Allows medics remote entry</div></div>
+          <div class="toggle on" id="t-lock" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Smart speaker active</div><div class="form-sub">Enables voice check-in + guidance</div></div>
+          <div class="toggle on" id="t-spkr" onclick="toggleEl(this)"></div>
+        </div>
+      </div>
+
+      <!-- Safe word -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">🔑</span> Safe word / phrase</div>
+        <div class="safewrd">
+          <div class="safewrd-phrase" id="safeWordDisplay">I need to call Grandma</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);">
+            Say this to any device. Triggers silent alert immediately — no other action needed.
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="safeWordInput" placeholder="Type a new safe phrase..." style="flex:1;"/>
+          <button class="btn go" style="flex:0;padding:8px 14px;font-size:12px;" onclick="updateSafeWord()">Set</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:6px;">
+          Choose something that sounds natural in conversation but would never come up by accident.
+        </div>
+      </div>
+
+      <!-- DV private mode -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">🔒</span> Private safety settings</div>
+        <div style="background:var(--pink-bg);border:1px solid rgba(217,102,255,0.3);border-radius:10px;padding:12px;margin-bottom:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--pink);margin-bottom:4px;">Stealth mode</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.6;">
+            When Guardian activates, no LED blinks, no sound plays, no notification appears on shared screens. Only your trusted contacts are notified.
+          </div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Stealth mode</div><div class="form-sub">No visible system activity on alerts</div></div>
+          <div class="toggle on" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Auto-call police</div><div class="form-sub">Only on score 86+ or weapon detected</div></div>
+          <div class="toggle on" onclick="toggleEl(this)"></div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">DV line first</div><div class="form-sub">Alert trained DV responder before police</div></div>
+          <div class="toggle on" onclick="toggleEl(this)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <!-- Trusted contacts -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">👥</span> Trusted contacts</div>
+        <div id="trustedList">
+          <div class="trusted-person">
+            <div class="tp-avatar">👩</div>
+            <div class="tp-info">
+              <div class="tp-name">Sarah Okafor</div>
+              <div class="tp-rel">Sister · First contact</div>
+            </div>
+            <div class="tp-contact">+254 712 ••••••</div>
+          </div>
+          <div class="trusted-person">
+            <div class="tp-avatar">👨</div>
+            <div class="tp-info">
+              <div class="tp-name">James Mwangi</div>
+              <div class="tp-rel">Neighbour · Second contact</div>
+            </div>
+            <div class="tp-contact">+254 733 ••••••</div>
+          </div>
+          <div class="trusted-person">
+            <div class="tp-avatar">👩‍⚕️</div>
+            <div class="tp-info">
+              <div class="tp-name">Dr. Auma Otieno</div>
+              <div class="tp-rel">Family doctor · Medical emergencies</div>
+            </div>
+            <div class="tp-contact">+254 720 ••••••</div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn" style="font-size:12px;" onclick="addContact()">+ Add contact</button>
+        </div>
+      </div>
+
+      <!-- Camera zones -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">📷</span> Camera zones</div>
+        <div id="camZones">
+          <div class="cam-zone">
+            <div class="cz-dot"></div>
+            <div class="cz-info"><div class="cz-name">Camera 1 — Front door</div><div class="cz-sub">Entry detection · Face recognition · Armed</div></div>
+            <div class="toggle on" onclick="toggleEl(this)"></div>
+          </div>
+          <div class="cam-zone">
+            <div class="cz-dot"></div>
+            <div class="cz-info"><div class="cz-name">Camera 2 — Living room</div><div class="cz-sub">Pose analysis · Distress signals · Armed</div></div>
+            <div class="toggle on" onclick="toggleEl(this)"></div>
+          </div>
+          <div class="cam-zone">
+            <div class="cz-dot"></div>
+            <div class="cz-info"><div class="cz-name">Camera 3 — Kitchen</div><div class="cz-sub">Fall detection · Smoke visual · Armed</div></div>
+            <div class="toggle on" onclick="toggleEl(this)"></div>
+          </div>
+          <div class="cam-zone">
+            <div class="cz-dot off"></div>
+            <div class="cz-info"><div class="cz-name">Camera 4 — Bedroom</div><div class="cz-sub">Sleep monitoring · Offline</div></div>
+            <div class="toggle" onclick="toggleEl(this)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sensitivity -->
+      <div class="setup-section">
+        <div class="setup-title"><span class="icon">🎛️</span> Detection sensitivity</div>
+        <div class="form-row">
+          <div><div class="form-label">Alert threshold</div><div class="form-sub">Minimum score to send alert</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="range" min="30" max="80" value="50" id="threshSlider" oninput="updateThresh(this.value)" style="width:100px;"/>
+            <span id="threshVal" style="font-family:var(--mono);font-size:11px;color:var(--green);width:24px;">50</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div><div class="form-label">Voice check-in delay</div><div class="form-sub">Minutes motionless before speaking</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="range" min="2" max="20" value="10" id="checkSlider" oninput="updateCheck(this.value)" style="width:100px;"/>
+            <span id="checkVal" style="font-family:var(--mono);font-size:11px;color:var(--green);width:24px;">10m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save bar -->
+  <div class="save-bar">
+    <div style="max-width:1100px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:12px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--dim);">All settings encrypted and stored locally. Never shared with third parties.</div>
+      <button class="btn go" style="flex:0;padding:10px 28px;" onclick="saveSettings()">💾 Save settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════ SHARED STATE ══════════════════ */
+let clock = 3, analysing = false;
+
+const SCENES = [
+  `Camera 1 (front door): Unknown male, face not in household registry, forced entry at 02:14.
+Camera 2 (living room): Adult female resident backed against wall, arms raised, visibly shaking.
+Microphone: Male voice shouting "Don't move, don't touch anything." Female voice silent.
+Motion sensor: Fast movement from door toward resident. No protective movement from resident.
+Context: 2:14 AM. No scheduled visitors. Resident previously set distress signal as palm-out gesture.
+Camera 2 update: Resident showing palm-out hand signal toward camera.`,
+
+  `Apple Watch (adult female): Fall detected 14:32. Heart rate dropped to 0 bpm. No response to wrist tap.
+Camera 3 (kitchen): Adult female collapsed on floor, no movement for 3 minutes.
+Camera 1 (living room): Child, estimated age 7, standing alone, calling out "Mama?"
+Microphone: Child crying. No adult voice response.
+Motion sensor: No movement from adult since fall. Child moving room to room.
+Context: 2:32 PM. No other adults in home. Child cannot operate phone.`,
+
+  `Smoke sensor (kitchen): CO level critical. Triggered 23:07.
+Camera 2 (kitchen): Flames visible on counter, spreading toward doorway.
+Camera 1 (hallway, floor 1): Adult male standing, coughing, covering face. Attempting to reach front door but door area obscured by smoke.
+Motion sensor: Person moving erratically, slowing down — possible CO impairment.
+Context: 11:07 PM. One occupant. Front exit path compromised. Side window accessible from hallway.`,
+
+  `Camera 2 (living room): Two known household members. Adult male advancing rapidly toward adult female.
+Microphone: Male shouting "I'll kill you." Female screaming. Impact sound followed by silence.
+Camera 2 update: Adult female on floor, not moving. Adult male standing over her holding object.
+Camera zoom: Object in hand matches firearm profile. Weapon pointed downward at person on floor.
+Motion sensor: High-velocity strike impact detected 3 seconds ago.
+Context: 9:45 PM. Both are registered household members. No unknown persons present.`
+];
+
+function pickScene(i) {
+  document.querySelectorAll('.scen-btn').forEach((b,j)=>{
+    b.classList.toggle('sel', j===i);
+  });
+  document.getElementById('sceneInput').value = SCENES[i];
+  resetAI();
+}
+
+function getT() {
+  clock++;
+  return String(Math.floor(clock/60)).padStart(2,'0')+':'+String(clock%60).padStart(2,'0');
+}
+
+function addLog(src, msg, cls='') {
+  const feed = document.getElementById('logFeed');
+  const sc = {HOME:'h',DISP:'d',STN:'s',AI:'a'}[src]||'d';
+  const r = document.createElement('div');
+  r.className = 'logrow';
+  r.innerHTML = `<span class="lt">${getT()}</span><span class="ls ${sc}">${src}</span><span class="lm ${cls}">${msg}</span>`;
+  feed.appendChild(r);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function setScore(n) {
+  document.getElementById('scoreNum').textContent = n;
+  document.getElementById('mFill').style.width = n+'%';
+  const fill = document.getElementById('mFill');
+  const num  = document.getElementById('scoreNum');
+  const lbl  = document.getElementById('scoreLbl');
+  const verd = document.getElementById('verdict');
+  if (n<=25) {
+    fill.style.background=num.style.color=lbl.style.color='var(--green)';
+    verd.className='verdict safe'; verd.textContent='✓ SITUATION NORMAL — MONITORING';
+    lbl.textContent='No immediate threat detected';
+  } else if (n<=55) {
+    fill.style.background=num.style.color=lbl.style.color='var(--amber)';
+    verd.className='verdict watch'; verd.textContent='⚠ ELEVATED — TRUSTED CONTACT NOTIFIED';
+    lbl.textContent='Monitoring closely. Escalation possible.';
+  } else if (n<=82) {
+    fill.style.background=num.style.color=lbl.style.color='var(--red)';
+    verd.className='verdict alert'; verd.textContent='🚨 ALERT — EMERGENCY SERVICES DISPATCHED';
+    lbl.textContent='Physical threat confirmed. Responding.';
+  } else {
+    fill.style.background=num.style.color=lbl.style.color='var(--red)';
+    verd.className='verdict critical'; verd.textContent='🔴 CRITICAL — IMMEDIATE DISPATCH';
+    lbl.textContent='Life-threatening event. All units responding.';
+  }
+}
+
+function lightSig(id, lvl='') {
+  const el = document.getElementById('sg-'+id);
+  if(el) el.className='sig on'+(lvl?' '+lvl:'');
+}
+
+function fireAc(id) {
+  const el = document.getElementById('ac-'+id);
+  if(el) el.classList.add('fired');
+}
+
+function resetAI() {
+  document.getElementById('scoreNum').textContent='—';
+  document.getElementById('scoreNum').style.color='var(--green)';
+  document.getElementById('scoreLbl').textContent='Awaiting scene analysis';
+  document.getElementById('scoreLbl').style.color='var(--dim)';
+  document.getElementById('mFill').style.width='0%';
+  document.getElementById('verdict').className='verdict';
+  document.getElementById('verdict').textContent='NO ANALYSIS YET';
+  document.getElementById('reasonBox').textContent='Waiting for scene input...';
+  document.querySelectorAll('.sig').forEach(s=>s.className='sig');
+  document.querySelectorAll('.ac').forEach(a=>a.classList.remove('fired'));
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('thinking','active'));
+}
+
+/* ══════════════════ AI CORE — ANTHROPIC STREAMING ══════════════════ */
+async function runAnalysis() {
+  if(analysing) return;
+  const scene = document.getElementById('sceneInput').value.trim();
+  const key   = document.getElementById('apiKey').value.trim();
+  if(!scene) return;
+  if(!key) {
+    alert('Please paste your Anthropic API key in the top-right field (sk-ant-...).\nGet one free at console.anthropic.com');
+    return;
+  }
+
+  analysing=true;
+  document.getElementById('btnGo').disabled=true;
+  resetAI();
+  document.getElementById('meterCard').classList.add('thinking');
+  document.getElementById('reasonCard').classList.add('thinking');
+  addLog('HOME','Scene packaged. Sending to AI core...','hl');
+  addLog('DISP','Streaming classification from Anthropic...','');
+
+  const reasonBox = document.getElementById('reasonBox');
+  reasonBox.innerHTML='<span class="cursor"></span>';
+
+  const SYS=`You are the Guardian AI Core — a real-time emergency classification engine for a home safety system.
+Analyse the scene from home sensors and respond ONLY with a valid JSON object. No markdown. No text outside the JSON.
+
+{
+  "threat_score": <0-100>,
+  "emergency_type": "<NONE|ARGUMENT|INTRUDER|MEDICAL|FIRE|DOMESTIC_VIOLENCE|WEAPON_THREAT>",
+  "severity": "<NONE|LOW|MEDIUM|HIGH|CRITICAL>",
+  "reasoning": "<2-4 sentences: what signals you detected and why this score>",
+  "signals_detected": {
+    "unknown_person":<true|false>,"weapon":<true|false>,"physical_contact":<true|false>,
+    "threat_words":<true|false>,"person_down":<true|false>,"fire_smoke":<true|false>,
+    "child_alone":<true|false>,"distress_signal":<true|false>
+  },
+  "actions": {
+    "watch_only":<true|false>,"notify_trusted_contact":<true|false>,"notify_dv_line":<true|false>,
+    "dispatch_police":<true|false>,"dispatch_medics":<true|false>,"dispatch_fire":<true|false>
+  },
+  "dispatch_message":"<One sentence for the responding service>"
+}
+
+Score guide: 0-20 safe, 21-40 watch, 41-65 alert services, 66-85 dispatch, 86-100 critical/immediate.
+False alarms cost trust. Missed threats cost lives. Be precise.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        stream:true,
+        system: SYS,
+        messages:[{role:'user',content:'SCENE REPORT:\n'+scene}]
+      })
+    });
+
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API error '+res.status);}
+
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    let accumulated='', displayText='', buf='';
+
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf += dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        const data=line.slice(6).trim();
+        if(!data||data==='[DONE]') continue;
+        try{
+          const evt=JSON.parse(data);
+          if(evt.type==='content_block_delta'&&evt.delta?.type==='text_delta'){
+            const tok=evt.delta.text;
+            accumulated+=tok; displayText+=tok;
+            reasonBox.textContent=displayText;
+            const cur=document.createElement('span');
+            cur.className='cursor'; reasonBox.appendChild(cur);
+          }
+        }catch(e){}
+      }
+    }
+    reasonBox.textContent=displayText;
+
+    let result;
+    try{
+      const cleaned=accumulated.replace(/```json|```/g,'').trim();
+      result=JSON.parse(cleaned);
+    }catch(e){throw new Error('Could not parse AI JSON response');}
+
+    document.getElementById('meterCard').classList.remove('thinking');
+    document.getElementById('meterCard').classList.add('active');
+    document.getElementById('reasonCard').classList.remove('thinking');
+    document.getElementById('reasonCard').classList.add('active');
+
+    reasonBox.textContent=result.reasoning||accumulated;
+    setScore(result.threat_score);
+    addLog('AI',`Score:${result.threat_score} | ${result.emergency_type} | ${result.severity}`,
+      result.threat_score>=66?'c':result.threat_score>=41?'w':'g');
+
+    const s=result.signals_detected||{};
+    if(s.unknown_person)  lightSig('uk','w');
+    if(s.weapon)          lightSig('wp','d');
+    if(s.physical_contact)lightSig('ph','d');
+    if(s.threat_words)    lightSig('tw','w');
+    if(s.person_down)     lightSig('pd','d');
+    if(s.fire_smoke)      lightSig('fs','d');
+    if(s.child_alone)     lightSig('ca','w');
+    if(s.distress_signal) lightSig('ds','w');
+
+    const a=result.actions||{};
+    if(a.watch_only)             {fireAc('watch'); addLog('HOME','Watch mode active.','');}
+    if(a.notify_trusted_contact) {fireAc('trust'); addLog('DISP','Trusted contact notified (silent SMS).','w');}
+    if(a.notify_dv_line)         {fireAc('dv');    addLog('DISP','DV support line agent alerted.','w');}
+    if(a.dispatch_police)        {fireAc('pol');   addLog('STN',result.dispatch_message,'c'); addLog('STN','Police unit dispatched.','c');}
+    if(a.dispatch_medics)        {fireAc('med');   addLog('STN',result.dispatch_message,'c'); addLog('STN','Medic unit dispatched.','c');}
+    if(a.dispatch_fire)          {fireAc('fir');   addLog('STN',result.dispatch_message,'c'); addLog('STN','Fire unit dispatched.','c');}
+
+    if(!a.dispatch_police&&!a.dispatch_medics&&!a.dispatch_fire&&!a.notify_trusted_contact){
+      addLog('DISP','No dispatch required. Monitoring continues.','g');
+    }
+    addLog('HOME','Analysis complete. Guardian standing by.','g');
+
+    // Push to station dashboard
+    if(result.threat_score>=41){
+      pushToStation(result, document.getElementById('setupAddr')?.value||'14 Maple Drive');
+    }
+
+  }catch(err){
+    document.getElementById('meterCard').classList.remove('thinking');
+    document.getElementById('reasonCard').classList.remove('thinking');
+    reasonBox.textContent='Error: '+err.message;
+    addLog('AI','API error — '+err.message.substring(0,80),'c');
+  }
+  document.getElementById('btnGo').disabled=false;
+  analysing=false;
+}
+
+/* ══════════════════ STATION DASHBOARD ══════════════════ */
+const INCIDENTS_DEMO=[
+  {id:1,type:'INTRUDER',addr:'14 Maple Drive, Floor 1',score:94,severity:'CRITICAL',
+   color:'var(--red)',brief:'Unknown male intruder, armed. Adult female resident cornered. Distress signal confirmed.',
+   lat:'-1.2921',lng:'36.8219',police:true,medic:false,fire:false,eta:4},
+  {id:2,type:'MEDICAL',addr:'9 Birchwood Close, Floor 2',score:72,severity:'HIGH',
+   color:'var(--blue)',brief:'Adult cardiac arrest. Child age 7 alone on premises. Smart lock code sent to medics.',
+   lat:'-1.2950',lng:'36.8180',police:false,medic:true,fire:false,eta:6},
+  {id:3,type:'ARGUMENT',addr:'22 Cedar Lane, Apt 3B',score:18,severity:'LOW',
+   color:'var(--green)',brief:'Elevated voice levels detected. Both parties mobile. No physical contact. Monitoring.',
+   lat:'-1.2900',lng:'36.8250',police:false,medic:false,fire:false,eta:null},
+];
+
+let selectedInc=null;
+
+function buildIncQueue(incidents){
+  const q=document.getElementById('incQueue');
+  q.innerHTML='';
+  incidents.forEach(inc=>{
+    const div=document.createElement('div');
+    div.className='inc-card mb'+(inc.id===selectedInc?' active-inc':'');
+    div.onclick=()=>selectInc(inc);
+    const badge=inc.score>=66?'background:var(--red-bg);color:var(--red);border:1px solid rgba(255,61,90,0.4);':
+                 inc.score>=40?'background:var(--amber-bg);color:var(--amber);border:1px solid rgba(255,176,32,0.4);':
+                               'background:var(--green-bg);color:var(--green);border:1px solid rgba(0,229,160,0.4);';
+    div.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div class="inc-type" style="color:${inc.color}">${inc.type}</div>
+        <span class="inc-badge" style="${badge}">${inc.severity}</span>
+      </div>
+      <div class="inc-addr">${inc.addr}</div>
+      <div class="inc-score-bar"><div class="inc-score-fill" style="width:${inc.score}%;background:${inc.color};"></div></div>
+      <div class="inc-meta"><span>Score: ${inc.score}</span><span>${inc.eta?'ETA '+inc.eta+' min':'No dispatch'}</span></div>`;
+    q.appendChild(div);
+  });
+}
+
+function selectInc(inc){
+  selectedInc=inc.id;
+  buildIncQueue(INCIDENTS_DEMO);
+
+  // Detail panel
+  document.getElementById('detailContent').innerHTML=`
+    <div style="margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:700;color:${inc.color};margin-bottom:2px;">${inc.type} — Score ${inc.score}</div>
+      <div style="color:var(--dim);margin-bottom:8px;">${inc.addr}</div>
+      <div style="line-height:1.7;color:var(--text);">${inc.brief}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${inc.police?'<span style="padding:3px 8px;border-radius:4px;background:var(--red-bg);color:var(--red);font-size:9px;border:1px solid rgba(255,61,90,0.4);">🚔 Police dispatched</span>':''}
+      ${inc.medic?'<span style="padding:3px 8px;border-radius:4px;background:var(--blue-bg);color:var(--blue);font-size:9px;border:1px solid rgba(77,166,255,0.4);">🚑 Medics dispatched</span>':''}
+      ${inc.fire?'<span style="padding:3px 8px;border-radius:4px;background:var(--red-bg);color:var(--red);font-size:9px;border:1px solid rgba(255,61,90,0.4);">🚒 Fire dispatched</span>':''}
+    </div>`;
+
+  // Map
+  document.getElementById('mapPin').style.display='block';
+  document.getElementById('mapAddr').textContent=inc.addr;
+  document.getElementById('mapAddr').style.color='var(--green)';
+  document.getElementById('mapCoords').textContent=`${inc.lat}° N, ${inc.lng}° E`;
+
+  // ETAs
+  const pe=document.getElementById('eta-police');
+  const me=document.getElementById('eta-medic');
+  const fe=document.getElementById('eta-fire');
+  pe.textContent=inc.police?'EN ROUTE · '+inc.eta+' min':'STANDBY';
+  pe.className='resp-eta'+(inc.police?' en-route':'');
+  me.textContent=inc.medic?'EN ROUTE · '+inc.eta+' min':'STANDBY';
+  me.className='resp-eta'+(inc.medic?' en-route':'');
+  fe.textContent=inc.fire?'EN ROUTE · '+inc.eta+' min':'STANDBY';
+  fe.className='resp-eta'+(inc.fire?' en-route':'');
+
+  // Dispatch brief
+  document.getElementById('dispBrief').textContent=inc.brief;
+
+  // Ticker
+  if(inc.score>=66){
+    document.getElementById('alertTicker').className='alert-ticker show';
+    document.getElementById('tickerText').textContent=`${inc.type} ALERT — ${inc.addr}`;
+    document.getElementById('tickerEta').textContent=inc.eta?'ETA '+inc.eta+' min':'DISPATCHED';
+  } else {
+    document.getElementById('alertTicker').className='alert-ticker';
+  }
+}
+
+function triggerLiveAlert(){
+  const newInc={
+    id:Date.now(),type:'WEAPON THREAT',
+    addr:document.getElementById('setupAddr')?.value||'14 Maple Drive',
+    score:96,severity:'CRITICAL',color:'var(--red)',
+    brief:'Firearm detected, pointed at resident. Victim on floor, not moving. Immediate response required.',
+    lat:'-1.2921',lng:'36.8219',police:true,medic:true,fire:false,eta:3
+  };
+  INCIDENTS_DEMO.unshift(newInc);
+  buildIncQueue(INCIDENTS_DEMO);
+  selectInc(newInc);
+}
+
+function pushToStation(result, addr){
+  const newInc={
+    id:Date.now(),
+    type:result.emergency_type,
+    addr:addr,
+    score:result.threat_score,
+    severity:result.severity,
+    color:result.threat_score>=66?'var(--red)':result.threat_score>=40?'var(--amber)':'var(--green)',
+    brief:result.dispatch_message||result.reasoning,
+    lat:'-1.2921',lng:'36.8219',
+    police:result.actions?.dispatch_police||false,
+    medic:result.actions?.dispatch_medics||false,
+    fire:result.actions?.dispatch_fire||false,
+    eta:result.actions?.dispatch_police?4:result.actions?.dispatch_medics?6:null
+  };
+  INCIDENTS_DEMO.unshift(newInc);
+  buildIncQueue(INCIDENTS_DEMO);
+  selectInc(newInc);
+}
+
+/* Station clock */
+function updateClock(){
+  const now=new Date();
+  document.getElementById('stnClock').textContent=
+    String(now.getHours()).padStart(2,'0')+':'+
+    String(now.getMinutes()).padStart(2,'0')+':'+
+    String(now.getSeconds()).padStart(2,'0');
+}
+setInterval(updateClock,1000); updateClock();
+
+/* ══════════════════ SETUP PAGE ══════════════════ */
+function toggleEl(el){el.classList.toggle('on');}
+
+function updateSafeWord(){
+  const v=document.getElementById('safeWordInput').value.trim();
+  if(v){document.getElementById('safeWordDisplay').textContent=v;
+        document.getElementById('safeWordInput').value='';}
+}
+
+function updateThresh(v){document.getElementById('threshVal').textContent=v;}
+function updateCheck(v){document.getElementById('checkVal').textContent=v+'m';}
+
+function addContact(){
+  const name=prompt('Contact name:');
+  if(!name) return;
+  const phone=prompt('Phone number:');
+  const rel=prompt('Relationship (e.g. Sister, Neighbour):');
+  const list=document.getElementById('trustedList');
+  const div=document.createElement('div');
+  div.className='trusted-person';
+  div.innerHTML=`<div class="tp-avatar">👤</div>
+    <div class="tp-info"><div class="tp-name">${name}</div><div class="tp-rel">${rel||'Contact'}</div></div>
+    <div class="tp-contact">${phone||'—'}</div>`;
+  list.appendChild(div);
+}
+
+function saveSettings(){
+  const btn=event.target;
+  btn.textContent='✓ Saved!';
+  btn.style.background='var(--teal)';
+  setTimeout(()=>{btn.textContent='💾 Save settings';btn.style.background='var(--green)';},2000);
+}
+
+/* ══════════════════ NAV ══════════════════ */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+/* ══════════════════ INIT ══════════════════ */
+pickScene(0);
+buildIncQueue(INCIDENTS_DEMO);
+selectInc(INCIDENTS_DEMO[0]);
+</script>
+</body>
+</html>
